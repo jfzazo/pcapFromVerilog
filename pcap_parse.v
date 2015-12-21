@@ -2,81 +2,81 @@
 `define NULL 0
 
 
-// Engineer:	Jose Fernando Zazo
+// Engineer:    Jose Fernando Zazo
 // Description:
-//	Utility to replay a packets from a pcap file over a 64-bit for use in network test benches.
+//    Utility to replay a packets from a pcap file over a 64-bit for use in network test benches.
 //  Based on the original work of Chris Shucksmith (https://github.com/shuckc/)
 
 
 module pcap_parse
-	#(
-		parameter pcap_filename   = "none",
+    #(
+        parameter pcap_filename   = "none",
         parameter use_custom_ifg  = "TRUE",   
         parameter default_ifg     = 6,
-		parameter CLOCK_FREQ_HZ  = 156250000
-	) (
-		input pause,
+        parameter CLOCK_FREQ_HZ  = 156250000
+    ) (
+        input pause,
 
-		output reg  [63:0] data,      //       .data
-		output reg  [7:0]  strb,      //       .strb
+        output reg  [63:0] data,      //       .data
+        output reg  [7:0]  strb,      //       .strb
         input  wire        ready,     //       .ready
         output reg         valid = 0, //       .valid
         output reg         sop = 0,   //       .startofpacket
         output reg         eop = 0,   //       .endofpacket
         input  wire        clk,       //       clk
 
-		output reg [7:0] pktcount = 0,
-		output reg pcapfinished = 0
-	);
+        output reg [7:0] pktcount = 0,
+        output reg pcapfinished = 0
+    );
 
 
-	// buffers for message
-	reg [7:0] global_header [0:23];
-	reg [7:0] packet_header [0:15];
+    // buffers for message
+    reg [7:0] global_header [0:23];
+    reg [7:0] packet_header [0:15];
     reg newpkt = 0;
     
-	integer swapped = 0;
-	integer file = 0;
-	integer r    = 0;
-	integer eof  = 0;
-	integer i    = 0;
-	integer pktSz  = 0;
+    integer swapped = 0;
+    integer file = 0;
+    integer r    = 0;
+    integer eof  = 0;
+    integer i    = 0;
+    integer pktSz  = 0;
     integer diskSz = 0;
     integer nsPrecision = 0;
     integer timestamp_msb = 0;
-	integer timestamp_lsb = 0;
+    integer timestamp_lsb = 0;
      
-	initial begin
+    initial begin
 
-		// open pcap file
-		if (pcap_filename == "none") begin
-			$display("pcap filename parameter not set");
-			$finish; 
-		end
+        // open pcap file
+        if (pcap_filename == "none") begin
+            $display("pcap filename parameter not set");
+            $finish; 
+        end
 
-		file = $fopen(pcap_filename, "rb");
-		if (file == `NULL) begin
-			$display("can't read pcap input %s", pcap_filename);
-			$finish;
-		end
+        file = $fopen(pcap_filename, "rb");
+        if (file == `NULL) begin
+            $display("can't read pcap input %s", pcap_filename);
+            $finish;
+        end
 
-		// Initialize Inputs
-		$display("PCAP: %m reading from %s", pcap_filename);
+        // Initialize Inputs
+        $display("PCAP: %m reading from %s", pcap_filename);
 
-		// read binary global_header
-		r = $fread(global_header,file);
+        // read binary global_header
+        r = $fread(global_header,file);
 
-		// check magic signature to determine byte ordering
-		if (global_header[3] == 8'hA1 && global_header[2] == 8'hB2) begin
-			$display(" pcap endian: swapped");
-			swapped = 1;
-		end else if (global_header[0] == 8'hA1 && global_header[1] == 8'hB2) begin
-			$display(" pcap endian: native");
-			swapped = 0;
-		end else begin
-			$display(" pcap endian: unrecognised format");
-			$finish; 
-		end
+        // check magic signature to determine byte ordering
+        if (global_header[3] == 8'hA1 && global_header[2] == 8'hB2) begin
+            $display(" pcap endian: swapped");
+            swapped = 1;
+        end else if (global_header[0] == 8'hA1 && global_header[1] == 8'hB2) begin
+            $display(" pcap endian: native");
+            swapped = 0;
+        end else begin
+            $display(" pcap endian: unrecognised format");
+            $finish; 
+        end
 
         if ((swapped && global_header[0] == 8'h4D && global_header[1] == 8'h3C)
             || (global_header[3] == 8'h4D && global_header[2] == 8'h3C)) begin
@@ -91,7 +91,7 @@ module pcap_parse
             $finish; 
         end
 
-	end
+    end
 
 
     reg pause_ifg = 0;
@@ -167,42 +167,50 @@ module pcap_parse
         endcase
     end
 
-	always @(posedge clk) begin
-		if (eof == 0 && diskSz == 0) begin
-			// read packet header
-			// fields of interest are U32 so bear in mind the byte ordering when assembling
-			// multibyte fields
-			r = $fread(packet_header, file);
-			if (swapped == 1) begin
+    always @(posedge clk) begin
+        eof = $feof(file);
+        
+        if (eof != 0) begin
+            pcapfinished <= 1;    // terminal loop here
+            eop <= 0;
+            sop <= 0;
+            valid <= 0;
+            data <= 64'bx;
+        end else if (diskSz == 0) begin
+            // read packet header
+            // fields of interest are U32 so bear in mind the byte ordering when assembling
+            // multibyte fields
+            r = $fread(packet_header, file);
+            if (swapped == 1) begin
                 timestamp_msb   = {packet_header[3],packet_header[2],packet_header[1],packet_header[0] };
                 timestamp_lsb   = {packet_header[7],packet_header[6],packet_header[5],packet_header[4] };
-				pktSz  = {packet_header[11],packet_header[10],packet_header[9] ,packet_header[8] };
-				diskSz = {packet_header[15],packet_header[14],packet_header[13],packet_header[12]};
-			end else begin
+                pktSz  = {packet_header[11],packet_header[10],packet_header[9] ,packet_header[8] };
+                diskSz = {packet_header[15],packet_header[14],packet_header[13],packet_header[12]};
+            end else begin
                 timestamp_msb   = {packet_header[0],packet_header[1],packet_header[2],packet_header[3] };
                 timestamp_lsb   = {packet_header[4],packet_header[5],packet_header[6],packet_header[7] };
-				pktSz =  {packet_header[ 8],packet_header[ 9],packet_header[10],packet_header[11]};
-				diskSz = {packet_header[12],packet_header[13],packet_header[14],packet_header[15]};
-			end
+                pktSz =  {packet_header[ 8],packet_header[ 9],packet_header[10],packet_header[11]};
+                diskSz = {packet_header[12],packet_header[13],packet_header[14],packet_header[15]};
+            end
 
-			$display("PCAP:  packet %0d: incl_length %0d orig_length %0d", pktcount, pktSz, diskSz );
+            $display("PCAP:  packet %0d: incl_length %0d orig_length %0d", pktcount, pktSz, diskSz );
 
-			newpkt <= 1;
-			pktcount <= pktcount + 1;
+            newpkt <= 1;
+            pktcount <= pktcount + 1;
 
-			eop <= 0;
-			sop <= 0;
-			valid <= 0;
-		end else if ( diskSz > 0) begin
+            eop <= 0;
+            sop <= 0;
+            valid <= 0;
+        end else if ( diskSz > 0) begin
 
-			// packet content is byte-aligned, no swapping required
-			if (~pause && ~pause_ifg && ready) begin
+            // packet content is byte-aligned, no swapping required
+            if (~pause && ~pause_ifg && ready) begin
 
-				newpkt <= 0;
-				diskSz <= (diskSz > 7) ? diskSz - 8 : 0;
+                newpkt <= 0;
+                diskSz <= (diskSz > 7) ? diskSz - 8 : 0;
 
-				sop <= newpkt;
-				eop <= diskSz <= 8;
+                sop <= newpkt;
+                eop <= diskSz <= 8;
 
                 case(diskSz) 
                     1: begin
@@ -294,26 +302,17 @@ module pcap_parse
                         data[7*8+:8] <= $fgetc(file);                                   
                     end            
                 endcase
-                
-           
-				eof = $feof(file);
                 valid <= 1;
-			end else begin
-			    if(valid && ~ready) begin
+            end else begin
+                if(valid && ~ready) begin
                    valid <= 1;          
                 end else begin
-				   valid <= 0; 
-				end
-			end
-		end else if (eof != 0) begin
-			pcapfinished <= 1;	// terminal loop here
-			eop <= 0;
-			sop <= 0;
-			valid <= 0;
-			data <= 64'bx;
-		end
+                   valid <= 0; 
+                end
+            end
+        end 
 
 
-	end
+    end
 
 endmodule
