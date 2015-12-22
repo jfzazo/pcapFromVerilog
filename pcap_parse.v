@@ -13,17 +13,18 @@ module pcap_parse
         parameter pcap_filename   = "none",
         parameter use_custom_ifg  = "TRUE",   
         parameter default_ifg     = 6,
-        parameter CLOCK_FREQ_HZ  = 156250000
-    ) (
-        input pause,
+		parameter CLOCK_FREQ_HZ   = 156250000,
+		parameter AXIS_WIDTH      = 64
+	) (
+		input pause,
 
-        output reg  [63:0] data,      //       .data
-        output reg  [7:0]  strb,      //       .strb
-        input  wire        ready,     //       .ready
-        output reg         valid = 0, //       .valid
-        output reg         sop = 0,   //       .startofpacket
-        output reg         eop = 0,   //       .endofpacket
-        input  wire        clk,       //       clk
+		output reg  [AXIS_WIDTH-1:0]      data,      //       .data
+		output reg  [(AXIS_WIDTH/8)-1:0]  strb,      //       .strb
+        input  wire                       ready,     //       .ready
+        output reg                        valid = 0, //       .valid
+        output reg                        sop = 0,   //       .startofpacket
+        output reg                        eop = 0,   //       .endofpacket
+        input  wire                       clk,       //       clk
 
         output reg [7:0] pktcount = 0,
         output reg pcapfinished = 0
@@ -44,7 +45,8 @@ module pcap_parse
     integer diskSz = 0;
     integer nsPrecision = 0;
     integer timestamp_msb = 0;
-    integer timestamp_lsb = 0;
+	integer timestamp_lsb = 0;
+    integer k;
      
     initial begin
 
@@ -100,9 +102,9 @@ module pcap_parse
     integer previous_packet_timestamp_msb;
     integer previous_packet_timestamp_lsb;
 
-    wire [63:0] previous_packet_real_timestamp:
-    wire [63:0] real_timestamp:
-    real        ns_per_cycle    = 1./CLOCK_FREQ_HZ*1e9;
+    wire [63:0] previous_packet_real_timestamp;
+    wire [63:0] real_timestamp;
+    real        ns_per_cycle    = 1.0/CLOCK_FREQ_HZ*1e9;
 
     assign previous_packet_real_timestamp = nsPrecision ? 
                                 previous_packet_timestamp_msb*1e9 + previous_packet_timestamp_lsb 
@@ -175,7 +177,7 @@ module pcap_parse
             eop <= 0;
             sop <= 0;
             valid <= 0;
-            data <= 64'bx;
+            data <= {AXIS_WIDTH{1'bx}};
         end else if (diskSz == 0) begin
             // read packet header
             // fields of interest are U32 so bear in mind the byte ordering when assembling
@@ -207,101 +209,21 @@ module pcap_parse
             if (~pause && ~pause_ifg && ready) begin
 
                 newpkt <= 0;
-                diskSz <= (diskSz > 7) ? diskSz - 8 : 0;
+                diskSz <= (diskSz > AXIS_WIDTH/8-1) ? diskSz - AXIS_WIDTH/8 : 0;
 
                 sop <= newpkt;
-                eop <= diskSz <= 8;
+                eop <= diskSz <= AXIS_WIDTH/8;
 
-                case(diskSz) 
-                    1: begin
-                        strb <= 8'h1;   
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= 8'bx;
-                        data[2*8+:8] <= 8'bx;
-                        data[3*8+:8] <= 8'bx;
-                        data[4*8+:8] <= 8'bx;
-                        data[5*8+:8] <= 8'bx;
-                        data[6*8+:8] <= 8'bx;
-                        data[7*8+:8] <= 8'bx;  
+                for (k=0 ; k < AXIS_WIDTH/8 ; k = k+1) begin
+                    if (diskSz < k+1) begin
+                        data[k*8+:8] <= 8'bx;
+                        strb[k]=1'b0;
+                    end else begin
+                        data[k*8+:8] <= $fgetc(file);
+                        strb[k]=1'b1;
                     end
-                    2: begin
-                        strb <= 8'h3; 
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= 8'bx;
-                        data[3*8+:8] <= 8'bx;
-                        data[4*8+:8] <= 8'bx;
-                        data[5*8+:8] <= 8'bx;
-                        data[6*8+:8] <= 8'bx;
-                        data[7*8+:8] <= 8'bx;  
-                    end
-                    3: begin
-                        strb <= 8'h7; 
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= $fgetc(file);
-                        data[3*8+:8] <= 8'bx;
-                        data[4*8+:8] <= 8'bx;
-                        data[5*8+:8] <= 8'bx;
-                        data[6*8+:8] <= 8'bx;
-                        data[7*8+:8] <= 8'bx;     
-                    end
-                    4: begin
-                        strb <= 8'hf;  
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= $fgetc(file);
-                        data[3*8+:8] <= $fgetc(file);
-                        data[4*8+:8] <= 8'bx;
-                        data[5*8+:8] <= 8'bx;
-                        data[6*8+:8] <= 8'bx;
-                        data[7*8+:8] <= 8'bx;        
-                    end
-                    5: begin
-                        strb <= 8'h1f;      
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= $fgetc(file);
-                        data[3*8+:8] <= $fgetc(file);
-                        data[4*8+:8] <= $fgetc(file);
-                        data[5*8+:8] <= 8'bx;
-                        data[6*8+:8] <= 8'bx;
-                        data[7*8+:8] <= 8'bx; 
-                    end
-                    6: begin
-                        strb <= 8'h3f;  
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= $fgetc(file);
-                        data[3*8+:8] <= $fgetc(file);
-                        data[4*8+:8] <= $fgetc(file);
-                        data[5*8+:8] <= $fgetc(file);
-                        data[6*8+:8] <= 8'bx;
-                        data[7*8+:8] <= 8'bx; 
-                    end
-                    7: begin
-                        strb <= 8'h7f;   
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= $fgetc(file);
-                        data[3*8+:8] <= $fgetc(file);
-                        data[4*8+:8] <= $fgetc(file);
-                        data[5*8+:8] <= $fgetc(file);
-                        data[6*8+:8] <= $fgetc(file);
-                        data[7*8+:8] <= 8'bx; 
-                    end
-                    default: begin
-                        strb <= 8'hff; 
-                        data[0*8+:8] <= $fgetc(file);
-                        data[1*8+:8] <= $fgetc(file);
-                        data[2*8+:8] <= $fgetc(file);
-                        data[3*8+:8] <= $fgetc(file);
-                        data[4*8+:8] <= $fgetc(file);
-                        data[5*8+:8] <= $fgetc(file);
-                        data[6*8+:8] <= $fgetc(file);
-                        data[7*8+:8] <= $fgetc(file);                                   
-                    end            
-                endcase
+                end 
+
                 valid <= 1;
             end else begin
                 if(valid && ~ready) begin
