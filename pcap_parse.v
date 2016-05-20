@@ -1,5 +1,6 @@
 `timescale 1ns / 1ps
 `define NULL 0
+`define abs(a) ((a)<0 ? -(a):(a))
 
 
 // Engineer:    Jose Fernando Zazo
@@ -136,16 +137,16 @@ module pcap_parse
             2'b01: begin // Substract the timestamps from two consecutives packets and assign the new 
                          // ifg. Notice one has been consumed.
                 if(nsPrecision) begin
-                    if($abs(real_timestamp - previous_packet_real_timestamp)/ns_per_cycle > 1) begin
-                        cnt_ifg   <= $ceil($abs(real_timestamp - previous_packet_real_timestamp)/ns_per_cycle) - 1;
+                    if(`abs(real_timestamp - previous_packet_real_timestamp)/ns_per_cycle > 1) begin
+                        cnt_ifg   <= $ceil(`abs(real_timestamp - previous_packet_real_timestamp)/ns_per_cycle) - 1;
                         state_ifg <= 2'b10;    
                     end else begin
                         state_ifg <= 2'b00;
                         pause_ifg <= 1'b0;
                     end
                 end else begin // Time in us.
-                    if($abs(real_timestamp - previous_packet_real_timestamp)/ns_per_cycle > 1) begin
-                        cnt_ifg   <= $ceil(($abs(real_timestamp - previous_packet_real_timestamp)*1e3)/ns_per_cycle) - 1;
+                    if(`abs(real_timestamp - previous_packet_real_timestamp)/ns_per_cycle > 1) begin
+                        cnt_ifg   <= $ceil((`abs(real_timestamp - previous_packet_real_timestamp)*1e3)/ns_per_cycle) - 1;
                         state_ifg <= 2'b10;    
                     end else begin
                         state_ifg <= 2'b00;
