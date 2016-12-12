@@ -82,7 +82,7 @@ module pcap_parse
 
     reg [2:0]                       hdr_size,consume_header;
     reg [$clog2(AXIS_WIDTH/8)-1:0]  wr_ptr;
-    reg                             axis_handshake;
+    wire                            axis_handshake;
     reg [2:0]                       wr_ptr_aux_sum;
     reg [15:0]                      bytes_send;
     integer                         l;
@@ -206,6 +206,7 @@ module pcap_parse
             data            <= {AXIS_WIDTH{1'b0}};
             keep            <= {AXIS_WIDTH/8{1'b0}};
             valid           <= 1'b0;
+            eop             <= 1'b0;
         end
         else begin
 
@@ -245,6 +246,7 @@ module pcap_parse
                             end
 
                             state <= END_READ;
+                            eop <= 1'b1;
 
                         end
                         else begin
@@ -340,7 +342,6 @@ module pcap_parse
                             end
 
                             if (diskSz==0) begin
-                                internal_last <= 1'b1;
                                 state <= READ_LOCAL_HEADER;
                             end
                         end 
@@ -353,6 +354,7 @@ module pcap_parse
                         data            <= {AXIS_WIDTH{1'b0}};
                         keep            <= {AXIS_WIDTH/8{1'b0}};
                         valid           <= 1'b0;
+                        eop             <= 1'b0;
                     end
                 end
 
@@ -363,14 +365,6 @@ module pcap_parse
     end
 
     assign axis_handshake = ((ready && valid) || (~ready && ~valid)) || ready;
-
-    always @(*) begin
-        if (default_mode==0) begin
-            eop <= internal_last;
-        end
-    end
-
-
 
 
     always @(posedge clk) begin
