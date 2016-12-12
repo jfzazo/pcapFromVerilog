@@ -33,7 +33,7 @@ module pcap_parse
         output reg  [(AXIS_WIDTH/8)-1:0]    keep,      //       .keep
         input  wire                         ready,     //       .ready
         output reg                          valid = 0, //       .valid
-        output reg                          last = 0,   //       .endofpacket
+        output reg                          eop   = 0, //       .endofpacket
         
         output reg                          sop = 0,   //       .startofpacket
 
@@ -173,7 +173,7 @@ module pcap_parse
         if (default_mode==1) begin
             hdr_size <= HEADER_SIZE_LENGTH/8;
         end
-        else if (default_mode==2) begin // only suppot one timestamp
+        else if (default_mode==2) begin // only support one timestamp
             hdr_size <= HEADER_SIZE_LENGTH/8 + 4;
         end
 
@@ -206,7 +206,6 @@ module pcap_parse
             data            <= {AXIS_WIDTH{1'b0}};
             keep            <= {AXIS_WIDTH/8{1'b0}};
             valid           <= 1'b0;
-            last            <= 1'b0;
         end
         else begin
 
@@ -242,7 +241,6 @@ module pcap_parse
                         if (eof !=0) begin
                             if (last_keep !=  {AXIS_WIDTH/8{1'b1}}) begin
                                 valid <= 1'b1;
-                                last <= 1'b1;
                                 keep <= last_keep;
                             end
 
@@ -355,7 +353,6 @@ module pcap_parse
                         data            <= {AXIS_WIDTH{1'b0}};
                         keep            <= {AXIS_WIDTH/8{1'b0}};
                         valid           <= 1'b0;
-                        last            <= 1'b0;
                     end
                 end
 
@@ -369,7 +366,7 @@ module pcap_parse
 
     always @(*) begin
         if (default_mode==0) begin
-            last <= internal_last;
+            eop <= internal_last;
         end
     end
 
