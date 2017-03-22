@@ -178,8 +178,8 @@ module pcap_parse
             eop <= 0;
             sop <= 0;
             valid <= 0;
-            data <= {AXIS_WIDTH{1'bx}};
-        end else if (diskSz == 0) begin
+            data <= {AXIS_WIDTH{1'b0}};
+        end else if (ready && diskSz == 0) begin
             // read packet header
             // fields of interest are U32 so bear in mind the byte ordering when assembling
             // multibyte fields
@@ -217,7 +217,7 @@ module pcap_parse
 
                 for (k=0 ; k < AXIS_WIDTH/8 ; k = k+1) begin
                     if (diskSz < k+1) begin
-                        data[k*8+:8] <= 8'bx;
+                        data[k*8+:8] <= 8'b0;
                         strb[k]=1'b0;
                     end else begin
                         data[k*8+:8] <= $fgetc(file);
