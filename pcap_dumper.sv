@@ -7,7 +7,7 @@
 //  Company       : Naudit
 //  Email         : josefernando.zazo@naudit.es
 //  Created On    : 2017-06-02 16:11:52
-//  Last Modified : 2017-06-05 13:52:34
+//  Last Modified : 2017-06-05 14:01:41
 //
 //  Revision      : 1.0
 //
@@ -93,6 +93,11 @@ module pcap_dumper #(
         // Snaplen
         global_header[16] = 8'hff;
         global_header[17] = 8'hff;
+        global_header[18] = 8'hff;
+        global_header[19] = 8'hff;
+
+        // Data link type
+        global_header[20] = 8'h01;
 
         // Write binary global_header
         foreach(global_header[i])
