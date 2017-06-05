@@ -7,7 +7,7 @@
 //  Company       : Naudit
 //  Email         : josefernando.zazo@naudit.es
 //  Created On    : 2017-06-02 16:11:52
-//  Last Modified : 2017-06-02 17:25:09
+//  Last Modified : 2017-06-05 13:52:34
 //
 //  Revision      : 1.0
 //
@@ -23,7 +23,7 @@
 module pcap_dumper #(
     parameter pcap_filename   = "none",
     parameter c_max_pkt_size = 2048     ,
-    parameter c_caplen       = 40        ,
+    parameter c_caplen       = 0        ,
     parameter c_ns_precision = 1        ,
     parameter CLOCK_FREQ_HZ  = 156250000,
     parameter AXIS_WIDTH     = 64
