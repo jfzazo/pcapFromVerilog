@@ -27,7 +27,7 @@ module pcap_parse
         output reg                        eop = 0,   //       .endofpacket
         input  wire                       clk,       //       clk
 
-        output reg [7:0] pktcount = 0,
+        output reg [15:0] pktcount = 0,
         output reg pcapfinished = 0
     );
 
