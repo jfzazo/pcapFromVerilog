@@ -35,6 +35,7 @@ module pcap_dumper #(
     output wire                      tready  ,
     input  wire                      tvalid  ,
     input  wire                      tlast   ,
+    input  wire                      eos     , // End of stream (close the file)
     output reg  [               7:0] pktcount
 );
 
@@ -71,7 +72,10 @@ module pcap_dumper #(
 
         // Initialize Inputs
         $display("PCAP: %m writing to %s", pcap_filename);
-
+        
+        foreach(global_header[i])
+            global_header[i]=0;
+            
         // Magic code
         global_header[3] = 8'hA1;
         global_header[2] = 8'hB2;
@@ -103,6 +107,7 @@ module pcap_dumper #(
         foreach(global_header[i])
             $fwrite(file,"%c",global_header[i]);
 
+        @(posedge eos) $fclose(file);                     
     end
 
     reg  [63:0] real_timestamp                        ;
@@ -116,7 +121,7 @@ module pcap_dumper #(
             real_timestamp = 0;
             pktcount       = 0;
         end else begin
-            real_timestamp+=ns_per_cycle;
+            //real_timestamp+=ns_per_cycle;
 
             if(tvalid && tready) begin
                 for(i=0;i<AXIS_WIDTH/8;i++) begin
