@@ -121,7 +121,7 @@ module pcap_dumper #(
             real_timestamp = 0;
             pktcount       = 0;
         end else begin
-            //real_timestamp+=ns_per_cycle;
+            real_timestamp=real_timestamp+ns_per_cycle;
 
             if(tvalid && tready) begin
                 for(i=0;i<AXIS_WIDTH/8;i++) begin
