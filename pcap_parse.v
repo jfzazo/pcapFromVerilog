@@ -13,6 +13,8 @@ module pcap_parse #(
     parameter pcap_filename   = "none",
     parameter use_custom_ifg  = "TRUE",
     parameter default_ifg   = 6        ,
+    parameter play_in_loop   = 0        ,
+    parameter n_loops        = 0        ,
     parameter CLOCK_FREQ_HZ = 156250000,
     parameter AXIS_WIDTH    = 64
 ) (
@@ -43,6 +45,7 @@ module pcap_parse #(
     integer nsPrecision  ;
     integer timestamp_msb;
     integer timestamp_lsb;
+    integer current_loop ;
 
 
     // read global header
@@ -148,6 +151,7 @@ module pcap_parse #(
         pcapfinished = 0;
         pause_ifg = 0;
         state_ifg = 0;
+        current_loop = 0;
 
         // open pcap file
         if (pcap_filename == "none") begin
@@ -250,6 +254,14 @@ module pcap_parse #(
 
     always @(posedge clk) begin
         eof = $feof(file);
+        if(eof != 0 && (play_in_loop && current_loop<n_loops)) begin
+            $rewind(file);
+            readGlobalHeader();
+            readPacketHeader();
+            pktcount <= pktcount + 1;
+            eof = $feof(file);
+            current_loop = current_loop+1;
+        end
 
         if (eof != 0) begin
             pcapfinished <= 1;    // terminal loop here
